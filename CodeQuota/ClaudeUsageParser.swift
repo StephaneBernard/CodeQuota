@@ -49,14 +49,14 @@ struct ClaudeUsageParser {
             ?? parseBucket(json, key: "longTerm")
             ?? parseBucket(json, key: "weekly")
         
-        let dailySonnet = parseBucket(json, key: "seven_day_sonnet")
-            ?? parseBucket(json, key: "daily_sonnet")
-            ?? parseBucket(json, key: "sevenDaySonnet")
-            ?? parseBucket(json, key: "7_day_sonnet")
-            ?? parseBucket(json, key: "sonnet")
-        
+        let dailyFable = parseScopedWeeklyLimit(json, modelDisplayName: "Fable")
+            ?? parseBucket(json, key: "seven_day_fable")
+            ?? parseBucket(json, key: "daily_fable")
+            ?? parseBucket(json, key: "sevenDayFable")
+            ?? parseBucket(json, key: "fable")
+
         // If none of the known keys matched, try dynamic parse
-        if fiveHour == nil && dailyAll == nil && dailySonnet == nil {
+        if fiveHour == nil && dailyAll == nil && dailyFable == nil {
             var buckets: [(String, UsageBucket)] = []
             for (key, value) in json {
                 if let dict = value as? [String: Any],
@@ -70,7 +70,7 @@ struct ClaudeUsageParser {
                 let usage = ClaudeUsage(
                     fiveHour: sorted.count > 0 ? sorted[0].1 : UsageBucket(percent: 0, resetAt: nil),
                     dailyAllModels: sorted.count > 1 ? sorted[1].1 : UsageBucket(percent: 0, resetAt: nil),
-                    dailySonnet: sorted.count > 2 ? sorted[2].1 : UsageBucket(percent: 0, resetAt: nil)
+                    dailyFable: sorted.count > 2 ? sorted[2].1 : UsageBucket(percent: 0, resetAt: nil)
                 )
                 return .success(usage)
             }
@@ -81,13 +81,31 @@ struct ClaudeUsageParser {
         let usage = ClaudeUsage(
             fiveHour: fiveHour ?? UsageBucket(percent: 0, resetAt: nil),
             dailyAllModels: dailyAll ?? UsageBucket(percent: 0, resetAt: nil),
-            dailySonnet: dailySonnet ?? UsageBucket(percent: 0, resetAt: nil)
+            dailyFable: dailyFable ?? UsageBucket(percent: 0, resetAt: nil)
         )
         
         return .success(usage)
     }
     
     // MARK: - Bucket Parsing
+
+    /// Parse a model-scoped weekly limit from the `limits` array
+    /// (e.g. the Fable quota, reported as kind "weekly_scoped" with a model scope).
+    static func parseScopedWeeklyLimit(_ json: [String: Any], modelDisplayName: String) -> UsageBucket? {
+        guard let limits = json["limits"] as? [[String: Any]] else { return nil }
+
+        for limit in limits {
+            guard let scope = limit["scope"] as? [String: Any],
+                  let model = scope["model"] as? [String: Any],
+                  model["display_name"] as? String == modelDisplayName,
+                  let percent = limit["percent"] as? Double else { continue }
+
+            let resetAt = parseDate(from: limit, key: "resets_at")
+            return UsageBucket(percent: clamp0100(percent), resetAt: resetAt)
+        }
+
+        return nil
+    }
     
     /// Try to parse a usage bucket from the JSON under a given key.
     /// Supports both nested object and flat key patterns.

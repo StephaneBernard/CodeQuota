@@ -160,7 +160,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         let data = jsonData([
             "five_hour": ["utilization": 0.25, "reset_at": "2025-06-15T12:30:00Z"],
             "seven_day": ["utilization": 0.50],
-            "seven_day_sonnet": ["utilization": 0.10]
+            "seven_day_fable": ["utilization": 0.10]
         ])
         
         let result = ClaudeUsageParser.parseResponse(data)
@@ -169,7 +169,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         case .success(let usage):
             XCTAssertEqual(usage.fiveHour.percent, 0.25)
             XCTAssertEqual(usage.dailyAllModels.percent, 0.50)
-            XCTAssertEqual(usage.dailySonnet.percent, 0.10)
+            XCTAssertEqual(usage.dailyFable.percent, 0.10)
             XCTAssertNotNil(usage.fiveHour.resetAt)
         case .failure(let error):
             XCTFail("Expected success, got failure: \(error)")
@@ -180,7 +180,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         let data = jsonData([
             "short_term": ["utilization": 0.30],
             "long_term": ["utilization": 0.60],
-            "sonnet": ["utilization": 0.15]
+            "fable": ["utilization": 0.15]
         ])
         
         let result = ClaudeUsageParser.parseResponse(data)
@@ -189,7 +189,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         case .success(let usage):
             XCTAssertEqual(usage.fiveHour.percent, 0.30)
             XCTAssertEqual(usage.dailyAllModels.percent, 0.60)
-            XCTAssertEqual(usage.dailySonnet.percent, 0.15)
+            XCTAssertEqual(usage.dailyFable.percent, 0.15)
         case .failure(let error):
             XCTFail("Expected success, got failure: \(error)")
         }
@@ -199,7 +199,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         let data = jsonData([
             "fiveHour": ["utilization": 0.20],
             "sevenDayAll": ["utilization": 0.40],
-            "sevenDaySonnet": ["utilization": 0.05]
+            "sevenDayFable": ["utilization": 0.05]
         ])
         
         let result = ClaudeUsageParser.parseResponse(data)
@@ -208,7 +208,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         case .success(let usage):
             XCTAssertEqual(usage.fiveHour.percent, 0.20)
             XCTAssertEqual(usage.dailyAllModels.percent, 0.40)
-            XCTAssertEqual(usage.dailySonnet.percent, 0.05)
+            XCTAssertEqual(usage.dailyFable.percent, 0.05)
         case .failure(let error):
             XCTFail("Expected success, got failure: \(error)")
         }
@@ -226,7 +226,7 @@ final class ClaudeUsageParserTests: XCTestCase {
         case .success(let usage):
             XCTAssertEqual(usage.fiveHour.percent, 0.80)
             XCTAssertEqual(usage.dailyAllModels.percent, 0)
-            XCTAssertEqual(usage.dailySonnet.percent, 0)
+            XCTAssertEqual(usage.dailyFable.percent, 0)
         case .failure(let error):
             XCTFail("Expected success, got failure: \(error)")
         }
@@ -276,12 +276,57 @@ final class ClaudeUsageParserTests: XCTestCase {
             // Sorted alphabetically: alpha=0.10, beta=0.20, gamma=0.30
             XCTAssertEqual(usage.fiveHour.percent, 0.10)
             XCTAssertEqual(usage.dailyAllModels.percent, 0.20)
-            XCTAssertEqual(usage.dailySonnet.percent, 0.30)
+            XCTAssertEqual(usage.dailyFable.percent, 0.30)
         case .failure(let error):
             XCTFail("Expected success via dynamic fallback, got failure: \(error)")
         }
     }
     
+    func testParseResponse_fableFromScopedWeeklyLimit() {
+        let data = jsonData([
+            "five_hour": ["utilization": 25.0, "resets_at": "2026-07-22T11:59:59Z"],
+            "seven_day": ["utilization": 79.0, "resets_at": "2026-07-23T01:00:00Z"],
+            "seven_day_fable": NSNull(),
+            "limits": [
+                [
+                    "kind": "session",
+                    "group": "session",
+                    "percent": 25,
+                    "resets_at": "2026-07-22T11:59:59Z",
+                    "scope": NSNull()
+                ],
+                [
+                    "kind": "weekly_scoped",
+                    "group": "weekly",
+                    "percent": 96,
+                    "resets_at": "2026-07-23T01:00:00Z",
+                    "scope": ["model": ["id": NSNull(), "display_name": "Fable"], "surface": NSNull()]
+                ]
+            ]
+        ])
+
+        let result = ClaudeUsageParser.parseResponse(data)
+
+        switch result {
+        case .success(let usage):
+            XCTAssertEqual(usage.fiveHour.percent, 25.0)
+            XCTAssertEqual(usage.dailyAllModels.percent, 79.0)
+            XCTAssertEqual(usage.dailyFable.percent, 96.0)
+            XCTAssertNotNil(usage.dailyFable.resetAt)
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testParseScopedWeeklyLimit_noMatchingModel_returnsNil() {
+        let json: [String: Any] = [
+            "limits": [
+                ["kind": "weekly_all", "percent": 50, "scope": NSNull()]
+            ]
+        ]
+        XCTAssertNil(ClaudeUsageParser.parseScopedWeeklyLimit(json, modelDisplayName: "Fable"))
+    }
+
     func testParseResponse_clampsValues() {
         let data = jsonData([
             "five_hour": ["utilization": 150.0] // Should be clamped to 100

@@ -3,7 +3,7 @@ import Combine
 
 // MARK: - Usage Data Models
 
-struct UsageBucket: Equatable {
+struct UsageBucket: Equatable, Codable {
     var percent: Double // 0.0 to 100.0
     var resetAt: Date?
     
@@ -26,15 +26,15 @@ struct UsageBucket: Equatable {
     }
 }
 
-struct ClaudeUsage: Equatable {
+struct ClaudeUsage: Equatable, Codable {
     var fiveHour: UsageBucket
     var dailyAllModels: UsageBucket
-    var dailySonnet: UsageBucket
-    
+    var dailyFable: UsageBucket
+
     static let empty = ClaudeUsage(
         fiveHour: UsageBucket(percent: 0, resetAt: nil),
         dailyAllModels: UsageBucket(percent: 0, resetAt: nil),
-        dailySonnet: UsageBucket(percent: 0, resetAt: nil)
+        dailyFable: UsageBucket(percent: 0, resetAt: nil)
     )
 }
 
@@ -45,23 +45,74 @@ enum UsageState: Equatable {
     case error(String)
 }
 
+// MARK: - Refresh Backoff
+
+/// Computes the polling interval between usage refreshes.
+/// Starts at `base`, doubles on failure up to `max`, and resets on success.
+struct RefreshBackoff: Equatable {
+    let base: TimeInterval
+    let max: TimeInterval
+    private(set) var interval: TimeInterval
+
+    init(base: TimeInterval, max: TimeInterval) {
+        self.base = base
+        self.max = max
+        self.interval = base
+    }
+
+    mutating func reset() {
+        interval = base
+    }
+
+    mutating func increase() {
+        interval = Swift.min(interval * 2, max)
+    }
+
+    mutating func apply(retryAfter: TimeInterval?) {
+        guard let retryAfter = retryAfter else {
+            increase()
+            return
+        }
+        interval = Swift.min(Swift.max(retryAfter, base), max)
+    }
+}
+
 // MARK: - Usage Manager
 
 class ClaudeUsageManager: ObservableObject {
     static let shared = ClaudeUsageManager()
-    
+
+    private static let baseRefreshInterval: TimeInterval = 60
+    private static let maxRefreshInterval: TimeInterval = 15 * 60
+    private static let cachedUsageKey = "claude_last_known_usage"
+
     @Published var state: UsageState = .notConnected
     @Published var lastUpdateText: String = "never"
     @Published var debugLog: String = ""
-    
+
     private var lastUpdateTime: Date?
     private var refreshTimer: Timer?
     private var textTimer: Timer?
+    private var backoff = RefreshBackoff(base: baseRefreshInterval, max: maxRefreshInterval)
     private let authManager = AnthropicAuthManager.shared
-    
+
     // Parsing is delegated to ClaudeUsageParser
-    
-    private init() {}
+
+    private init() {
+        if let cached = loadCachedUsage() {
+            state = .loaded(cached)
+        }
+    }
+
+    private func loadCachedUsage() -> ClaudeUsage? {
+        guard let data = UserDefaults.standard.data(forKey: Self.cachedUsageKey) else { return nil }
+        return try? JSONDecoder().decode(ClaudeUsage.self, from: data)
+    }
+
+    private func cacheUsage(_ usage: ClaudeUsage) {
+        guard let data = try? JSONEncoder().encode(usage) else { return }
+        UserDefaults.standard.set(data, forKey: Self.cachedUsageKey)
+    }
     
     private func log(_ msg: String) {
         let ts = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
@@ -77,27 +128,55 @@ class ClaudeUsageManager: ObservableObject {
     }
     
     func startAutoRefresh() {
-        // Invalidate existing timers to avoid duplicates
-        refreshTimer?.invalidate()
         textTimer?.invalidate()
-        
-        // Refresh usage every 30 seconds
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            self?.refresh()
-        }
-        
+        backoff.reset()
+        scheduleRefreshTimer()
+
         // Update "updated X ago" text every second
         textTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.updateLastUpdateText()
         }
-        
+
         // Initial refresh
         refresh()
+    }
+
+    private func scheduleRefreshTimer() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: backoff.interval, repeats: false) { [weak self] _ in
+            self?.refresh()
+        }
+    }
+
+    private func resetBackoff() {
+        backoff.reset()
+        scheduleRefreshTimer()
+    }
+
+    private func increaseBackoff() {
+        backoff.increase()
+        log("backoff: next refresh in \(Int(backoff.interval))s")
+        scheduleRefreshTimer()
+    }
+
+    private func backOff(retryAfter: TimeInterval?) {
+        backoff.apply(retryAfter: retryAfter)
+        log("backoff: next refresh in \(Int(backoff.interval))s")
+        scheduleRefreshTimer()
+    }
+
+    private func retryAfterSeconds(from response: HTTPURLResponse?) -> TimeInterval? {
+        guard let response = response else { return nil }
+        let headers = response.allHeaderFields
+        guard let raw = (headers["Retry-After"] ?? headers["retry-after"]) as? String,
+              let seconds = TimeInterval(raw.trimmingCharacters(in: .whitespaces)) else { return nil }
+        return seconds
     }
     
     func refresh() {
         guard authManager.isConnected else {
             state = .notConnected
+            scheduleRefreshTimer()
             return
         }
         
@@ -141,6 +220,7 @@ class ClaudeUsageManager: ObservableObject {
                 if let error = error {
                     self.log("fetchUsage: network error: \(error.localizedDescription)")
                     self.state = .error("Network error: \(error.localizedDescription)")
+                    self.increaseBackoff()
                     return
                 }
                 
@@ -151,6 +231,7 @@ class ClaudeUsageManager: ObservableObject {
                 guard let data = data else {
                     self.log("fetchUsage: no data")
                     self.state = .error("No data received.")
+                    self.increaseBackoff()
                     return
                 }
                 
@@ -188,19 +269,11 @@ class ClaudeUsageManager: ObservableObject {
                     self.log("fetchUsage: 429 RATE LIMITED")
                     self.log("fetchUsage: 429 body=\(bodyStr)")
                     
-                    // Log relevant headers for diagnostics
-                    if let httpResp = httpResponse {
-                        let headers = httpResp.allHeaderFields
-                        if let retryAfter = headers["Retry-After"] ?? headers["retry-after"] {
-                            self.log("fetchUsage: 429 Retry-After=\(retryAfter)")
-                        }
-                        for (key, value) in headers {
-                            if let keyStr = key as? String, keyStr.lowercased().contains("ratelimit") {
-                                self.log("fetchUsage: 429 \(keyStr)=\(value)")
-                            }
-                        }
+                    let retryAfter = self.retryAfterSeconds(from: httpResponse)
+                    if let retryAfter = retryAfter {
+                        self.log("fetchUsage: 429 Retry-After=\(retryAfter)s")
                     }
-                    
+
                     // Keep existing data if we have it, otherwise show error
                     if case .loaded = self.state {
                         self.log("fetchUsage: 429 - keeping previous usage data")
@@ -208,18 +281,21 @@ class ClaudeUsageManager: ObservableObject {
                     } else {
                         self.state = .error("Rate limited. Please wait and try again.")
                     }
+                    self.backOff(retryAfter: retryAfter)
                     return
                 }
-                
+
                 if statusCode < 200 || statusCode >= 300 {
                     let bodyStr = String(data: data, encoding: .utf8) ?? ""
                     self.log("fetchUsage: HTTP \(statusCode) body=\(bodyStr.prefix(200))")
                     self.state = .error("Server error (HTTP \(statusCode))")
+                    self.increaseBackoff()
                     return
                 }
-                
+
                 self.retryCount = 0
                 self.parseUsageResponse(data)
+                self.resetBackoff()
             }
         }.resume()
     }
@@ -228,8 +304,9 @@ class ClaudeUsageManager: ObservableObject {
         let result = ClaudeUsageParser.parseResponse(data)
         switch result {
         case .success(let usage):
-            log("parseUsage: success! 5h=\(usage.fiveHour.percent)% daily=\(usage.dailyAllModels.percent)% sonnet=\(usage.dailySonnet.percent)%")
+            log("parseUsage: success! 5h=\(usage.fiveHour.percent)% daily=\(usage.dailyAllModels.percent)% fable=\(usage.dailyFable.percent)%")
             state = .loaded(usage)
+            cacheUsage(usage)
             lastUpdateTime = Date()
             lastUpdateText = "just now"
         case .failure(let error):
