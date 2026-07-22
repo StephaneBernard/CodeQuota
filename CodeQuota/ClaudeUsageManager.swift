@@ -86,7 +86,7 @@ struct RefreshBackoff: Equatable {
 class ClaudeUsageManager: ObservableObject {
     static let shared = ClaudeUsageManager()
 
-    private static let baseRefreshInterval: TimeInterval = 60
+    private static let baseRefreshInterval: TimeInterval = 90
     private static let maxRefreshInterval: TimeInterval = 15 * 60
     private static let cachedUsageKey = "claude_last_known_usage"
 
