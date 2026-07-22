@@ -62,7 +62,7 @@ struct UsageIconView: View {
             if let lastGroup = groups.last,
                let reference = lastGroup.first,
                reference.metric.providerName == reading.metric.providerName,
-               reference.resetAt == reading.resetAt {
+               resetTimeString(until: reference.resetAt) == resetTimeString(until: reading.resetAt) {
                 groups[groups.count - 1].append(reading)
             } else {
                 groups.append([reading])
