@@ -35,24 +35,17 @@ enum MenuBarMetric: String, CaseIterable, Codable {
 class MenuBarSettings: ObservableObject {
     static let shared = MenuBarSettings()
     
-    static let key = "menubar_selected_metric"
     static let hiddenKey = "hidden_metrics"
     static let showResetTimeKey = "show_reset_time"
-    
+
     let defaults: UserDefaults
-    
+
     @Published var showResetTime: Bool {
         didSet {
             defaults.set(showResetTime, forKey: Self.showResetTimeKey)
         }
     }
-    
-    @Published var selectedMetric: MenuBarMetric {
-        didSet {
-            defaults.set(selectedMetric.rawValue, forKey: Self.key)
-        }
-    }
-    
+
     @Published var hiddenMetrics: Set<MenuBarMetric> {
         didSet {
             let rawValues = hiddenMetrics.map { $0.rawValue }
@@ -66,13 +59,6 @@ class MenuBarSettings: ObservableObject {
     
     init(defaults: UserDefaults) {
         self.defaults = defaults
-        
-        if let raw = defaults.string(forKey: Self.key),
-           let metric = MenuBarMetric(rawValue: raw) {
-            selectedMetric = metric
-        } else {
-            selectedMetric = .claude5Hour
-        }
         
         if let rawValues = defaults.stringArray(forKey: Self.hiddenKey) {
             hiddenMetrics = Set(rawValues.compactMap { MenuBarMetric(rawValue: $0) })
@@ -95,10 +81,12 @@ class MenuBarSettings: ObservableObject {
     func toggleVisibility(_ metric: MenuBarMetric) {
         if hiddenMetrics.contains(metric) {
             hiddenMetrics.remove(metric)
-        } else {
-            // Don't allow hiding the selected menu bar metric
-            if metric == selectedMetric { return }
+        } else if !isLastVisible(metric) {
             hiddenMetrics.insert(metric)
         }
+    }
+
+    private func isLastVisible(_ metric: MenuBarMetric) -> Bool {
+        MenuBarMetric.allCases.allSatisfy { $0 == metric || hiddenMetrics.contains($0) }
     }
 }

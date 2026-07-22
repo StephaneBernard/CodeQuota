@@ -3,26 +3,30 @@ import Combine
 
 // MARK: - Usage Data Models
 
+func resetTimeString(until resetAt: Date?) -> String {
+    guard let resetAt = resetAt else { return "--" }
+    let seconds = Int(resetAt.timeIntervalSinceNow)
+    if seconds <= 0 { return "now" }
+
+    let days = seconds / 86400
+    let hours = (seconds % 86400) / 3600
+    let minutes = (seconds % 3600) / 60
+
+    if days > 0 {
+        return "\(days)d \(hours)h"
+    } else if hours > 0 {
+        return "\(hours)h \(minutes)m"
+    } else {
+        return "\(minutes)m"
+    }
+}
+
 struct UsageBucket: Equatable, Codable {
     var percent: Double // 0.0 to 100.0
     var resetAt: Date?
-    
+
     var timeRemainingString: String {
-        guard let resetAt = resetAt else { return "--" }
-        let seconds = Int(resetAt.timeIntervalSinceNow)
-        if seconds <= 0 { return "now" }
-        
-        let days = seconds / 86400
-        let hours = (seconds % 86400) / 3600
-        let minutes = (seconds % 3600) / 60
-        
-        if days > 0 {
-            return "\(days)d \(hours)h"
-        } else if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes)m"
-        }
+        resetTimeString(until: resetAt)
     }
 }
 

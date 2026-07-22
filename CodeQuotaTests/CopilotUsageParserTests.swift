@@ -36,8 +36,38 @@ final class CopilotUsageParserTests: XCTestCase {
         XCTAssertEqual(CopilotUsageParser.intFromAny(true), 0)
     }
     
+    // MARK: - copilotMonthlyResetDate
+
+    private var utcCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+
+    private func date(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        utcCalendar.date(from: DateComponents(year: year, month: month, day: day))!
+    }
+
+    func testCopilotMonthlyResetDate_midMonth_returnsFirstOfNextMonth() {
+        let now = date(2026, 7, 22)
+        let reset = copilotMonthlyResetDate(from: now, calendar: utcCalendar)
+        XCTAssertEqual(reset, date(2026, 8, 1))
+    }
+
+    func testCopilotMonthlyResetDate_december_rollsOverToNextYear() {
+        let now = date(2026, 12, 15)
+        let reset = copilotMonthlyResetDate(from: now, calendar: utcCalendar)
+        XCTAssertEqual(reset, date(2027, 1, 1))
+    }
+
+    func testCopilotMonthlyResetDate_firstOfMonth_returnsNextMonth() {
+        let now = date(2026, 3, 1)
+        let reset = copilotMonthlyResetDate(from: now, calendar: utcCalendar)
+        XCTAssertEqual(reset, date(2026, 4, 1))
+    }
+
     // MARK: - inferPlanLimit
-    
+
     func testInferPlanLimit_belowFirstTier() {
         XCTAssertEqual(CopilotUsageParser.inferPlanLimit(fromDiscount: 30), 50)
     }

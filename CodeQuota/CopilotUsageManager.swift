@@ -8,14 +8,21 @@ struct CopilotUsage: Equatable {
     var premiumRequestsLimit: Int // 0 = unknown
     var percent: Double // 0-100
     var byModel: [(model: String, count: Int)]
-    
+
     static func == (lhs: CopilotUsage, rhs: CopilotUsage) -> Bool {
         lhs.premiumRequestsUsed == rhs.premiumRequestsUsed
         && lhs.premiumRequestsLimit == rhs.premiumRequestsLimit
         && lhs.percent == rhs.percent
     }
-    
+
     static let empty = CopilotUsage(premiumRequestsUsed: 0, premiumRequestsLimit: 0, percent: 0, byModel: [])
+}
+
+// Copilot premium requests reset at the start of each calendar month.
+func copilotMonthlyResetDate(from now: Date, calendar: Calendar = .current) -> Date? {
+    let startOfMonth = calendar.dateComponents([.year, .month], from: now)
+    guard let firstOfThisMonth = calendar.date(from: startOfMonth) else { return nil }
+    return calendar.date(byAdding: .month, value: 1, to: firstOfThisMonth)
 }
 
 enum CopilotUsageState: Equatable {

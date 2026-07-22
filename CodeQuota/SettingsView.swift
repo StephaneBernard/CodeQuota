@@ -390,42 +390,23 @@ struct SettingsView: View {
                 .padding(.bottom, 2)
             
             ForEach(availableMetrics, id: \.self) { metric in
-                let isSelected = menuBarSettings.selectedMetric == metric
                 let isVisible = menuBarSettings.isVisible(metric)
-                
-                HStack(spacing: 0) {
-                    // Select metric
-                    Button(action: { menuBarSettings.selectedMetric = metric }) {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(isSelected ? violet : Color.clear)
-                                .overlay(
-                                    Circle()
-                                        .stroke(isSelected ? Color.clear : Color.primary.opacity(0.15), lineWidth: 1)
-                                )
-                                .frame(width: 7, height: 7)
-                            
-                            Text(metric.displayName)
-                                .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                                .foregroundColor(
-                                    !isVisible ? .secondary.opacity(0.2) :
-                                    isSelected ? .primary.opacity(0.8) : .secondary.opacity(0.5)
-                                )
-                            
-                            Spacer()
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // Visibility toggle
-                    Button(action: { menuBarSettings.toggleVisibility(metric) }) {
+
+                Button(action: { menuBarSettings.toggleVisibility(metric) }) {
+                    HStack(spacing: 8) {
                         Image(systemName: isVisible ? "eye" : "eye.slash")
                             .font(.system(size: 9))
-                            .foregroundColor(isVisible ? .secondary.opacity(0.25) : .secondary.opacity(0.12))
-                            .frame(width: 24, height: 24)
+                            .foregroundColor(isVisible ? violet : .secondary.opacity(0.2))
+                            .frame(width: 16)
+
+                        Text(metric.displayName)
+                            .font(.system(size: 11, weight: isVisible ? .medium : .regular))
+                            .foregroundColor(isVisible ? .primary.opacity(0.8) : .secondary.opacity(0.4))
+
+                        Spacer()
                     }
-                    .buttonStyle(PlainButtonStyle())
                 }
+                .buttonStyle(PlainButtonStyle())
                 .padding(.vertical, 2)
             }
             

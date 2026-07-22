@@ -19,12 +19,7 @@ final class MenuBarSettingsTests: XCTestCase {
     }
     
     // MARK: - Defaults
-    
-    func testDefaultSelectedMetric() {
-        let settings = MenuBarSettings(defaults: testDefaults)
-        XCTAssertEqual(settings.selectedMetric, .claude5Hour)
-    }
-    
+
     func testDefaultHiddenMetrics_isEmpty() {
         let settings = MenuBarSettings(defaults: testDefaults)
         XCTAssertTrue(settings.hiddenMetrics.isEmpty)
@@ -36,21 +31,7 @@ final class MenuBarSettingsTests: XCTestCase {
     }
     
     // MARK: - Persistence
-    
-    func testSelectedMetric_persistsToDefaults() {
-        let settings = MenuBarSettings(defaults: testDefaults)
-        settings.selectedMetric = .copilotPremium
-        
-        let raw = testDefaults.string(forKey: MenuBarSettings.key)
-        XCTAssertEqual(raw, "copilot_premium")
-    }
-    
-    func testSelectedMetric_restoresFromDefaults() {
-        testDefaults.set("claude_weekly_fable", forKey: MenuBarSettings.key)
-        let settings = MenuBarSettings(defaults: testDefaults)
-        XCTAssertEqual(settings.selectedMetric, .claudeWeeklyFable)
-    }
-    
+
     func testShowResetTime_persistsToDefaults() {
         let settings = MenuBarSettings(defaults: testDefaults)
         settings.showResetTime = false
@@ -84,41 +65,33 @@ final class MenuBarSettingsTests: XCTestCase {
     }
     
     // MARK: - toggleVisibility
-    
-    func testToggleVisibility_hideNonSelectedMetric() {
+
+    func testToggleVisibility_hideVisibleMetric() {
         let settings = MenuBarSettings(defaults: testDefaults)
-        settings.selectedMetric = .claude5Hour
-        
+
         settings.toggleVisibility(.copilotPremium)
         XCTAssertTrue(settings.hiddenMetrics.contains(.copilotPremium))
     }
-    
+
     func testToggleVisibility_unhideHiddenMetric() {
         let settings = MenuBarSettings(defaults: testDefaults)
         settings.hiddenMetrics = [.copilotPremium]
-        
+
         settings.toggleVisibility(.copilotPremium)
         XCTAssertFalse(settings.hiddenMetrics.contains(.copilotPremium))
     }
-    
-    func testToggleVisibility_cannotHideSelectedMetric() {
+
+    func testToggleVisibility_cannotHideLastVisibleMetric() {
         let settings = MenuBarSettings(defaults: testDefaults)
-        settings.selectedMetric = .claude5Hour
-        
+        settings.hiddenMetrics = Set(MenuBarMetric.allCases).subtracting([.claude5Hour])
+
         settings.toggleVisibility(.claude5Hour) // Should be a no-op
+
         XCTAssertFalse(settings.hiddenMetrics.contains(.claude5Hour))
         XCTAssertTrue(settings.isVisible(.claude5Hour))
     }
-    
-    func testToggleVisibility_canHideOtherMetricsAfterChangingSelection() {
-        let settings = MenuBarSettings(defaults: testDefaults)
-        settings.selectedMetric = .copilotPremium
-        
-        // Now claude5Hour is no longer selected, so it can be hidden
-        settings.toggleVisibility(.claude5Hour)
-        XCTAssertTrue(settings.hiddenMetrics.contains(.claude5Hour))
-    }
-    
+
+
     // MARK: - MenuBarMetric properties
     
     func testMenuBarMetric_displayNames() {

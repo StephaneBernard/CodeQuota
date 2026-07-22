@@ -5,7 +5,6 @@ struct ContentView: View {
     @StateObject private var copilotUsage = CopilotUsageManager.shared
     @StateObject private var anthropicAuth = AnthropicAuthManager.shared
     @StateObject private var githubAuth = GitHubAuthManager.shared
-    @StateObject private var settings = MenuBarSettings.shared
     @State private var isRefreshing = false
     @State private var showSettings = false
     
@@ -43,12 +42,12 @@ struct ContentView: View {
                 .padding(.bottom, 24)
             
             // Claude section
-            if anthropicAuth.isConnected && hasVisibleClaudeMetrics {
+            if anthropicAuth.isConnected {
                 claudeSection
             }
-            
+
             // Copilot section
-            if githubAuth.isConnected && settings.isVisible(.copilotPremium) {
+            if githubAuth.isConnected {
                 copilotSection
             }
             
@@ -122,49 +121,27 @@ struct ContentView: View {
                     .padding(.horizontal, 24)
             case .loaded(let usage):
                 VStack(spacing: 8) {
-                    if settings.isVisible(.claude5Hour) {
-                        GradientTile(
-                            icon: "clock.fill",
-                            title: "5-Hour Session",
-                            percentage: usage.fiveHour.percent,
-                            detail: "Resets in: \(usage.fiveHour.timeRemainingString)"
-                        )
-                    }
-                    
-                    let showWeeklyAll = settings.isVisible(.claudeWeeklyAll)
-                    let showFable = settings.isVisible(.claudeWeeklyFable)
-                    
-                    if showWeeklyAll && showFable {
-                        // Both visible — side by side
-                        HStack(spacing: 8) {
-                            GradientTile(
-                                icon: "calendar",
-                                title: "Weekly All",
-                                percentage: usage.dailyAllModels.percent,
-                                detail: usage.dailyAllModels.timeRemainingString,
-                                compact: true
-                            )
-                            GradientTile(
-                                icon: "sparkles",
-                                title: "Fable",
-                                percentage: usage.dailyFable.percent,
-                                detail: usage.dailyFable.timeRemainingString,
-                                compact: true
-                            )
-                        }
-                    } else if showWeeklyAll {
+                    GradientTile(
+                        icon: "clock.fill",
+                        title: "5-Hour Session",
+                        percentage: usage.fiveHour.percent,
+                        detail: "Resets in: \(usage.fiveHour.timeRemainingString)"
+                    )
+
+                    HStack(spacing: 8) {
                         GradientTile(
                             icon: "calendar",
-                            title: "Weekly — All Models",
+                            title: "Weekly All",
                             percentage: usage.dailyAllModels.percent,
-                            detail: usage.dailyAllModels.timeRemainingString
+                            detail: usage.dailyAllModels.timeRemainingString,
+                            compact: true
                         )
-                    } else if showFable {
                         GradientTile(
                             icon: "sparkles",
-                            title: "Weekly — Fable",
+                            title: "Fable",
                             percentage: usage.dailyFable.percent,
-                            detail: usage.dailyFable.timeRemainingString
+                            detail: usage.dailyFable.timeRemainingString,
+                            compact: true
                         )
                     }
                 }
@@ -235,7 +212,7 @@ struct ContentView: View {
                 icon: "cpu",
                 title: "Premium Requests",
                 percentage: usage.percent,
-                detail: "\(usage.premiumRequestsUsed) / \(usage.premiumRequestsLimit) this month"
+                detail: "\(usage.premiumRequestsUsed) / \(usage.premiumRequestsLimit) · resets in \(resetTimeString(until: copilotMonthlyResetDate(from: Date())))"
             )
             
             // Model breakdown — clean from alt-3
@@ -276,12 +253,6 @@ struct ContentView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
         .padding(.vertical, 20)
-    }
-    
-    // MARK: - Helpers
-    
-    private var hasVisibleClaudeMetrics: Bool {
-        settings.isVisible(.claude5Hour) || settings.isVisible(.claudeWeeklyAll) || settings.isVisible(.claudeWeeklyFable)
     }
     
     // MARK: - Inline Error
