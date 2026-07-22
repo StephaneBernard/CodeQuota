@@ -46,9 +46,9 @@ final class MenuBarSettingsTests: XCTestCase {
     }
     
     func testSelectedMetric_restoresFromDefaults() {
-        testDefaults.set("claude_weekly_sonnet", forKey: MenuBarSettings.key)
+        testDefaults.set("claude_weekly_fable", forKey: MenuBarSettings.key)
         let settings = MenuBarSettings(defaults: testDefaults)
-        XCTAssertEqual(settings.selectedMetric, .claudeWeeklySonnet)
+        XCTAssertEqual(settings.selectedMetric, .claudeWeeklyFable)
     }
     
     func testShowResetTime_persistsToDefaults() {
@@ -60,11 +60,11 @@ final class MenuBarSettingsTests: XCTestCase {
     
     func testHiddenMetrics_persistsToDefaults() {
         let settings = MenuBarSettings(defaults: testDefaults)
-        settings.hiddenMetrics = [.claudeWeeklyAll, .claudeWeeklySonnet]
+        settings.hiddenMetrics = [.claudeWeeklyAll, .claudeWeeklyFable]
         
         let raw = testDefaults.stringArray(forKey: MenuBarSettings.hiddenKey)
         XCTAssertNotNil(raw)
-        XCTAssertEqual(Set(raw!), Set(["claude_weekly_all", "claude_weekly_sonnet"]))
+        XCTAssertEqual(Set(raw!), Set(["claude_weekly_all", "claude_weekly_fable"]))
     }
     
     // MARK: - isVisible
@@ -129,26 +129,26 @@ final class MenuBarSettingsTests: XCTestCase {
     func testMenuBarMetric_shortNames() {
         XCTAssertEqual(MenuBarMetric.claude5Hour.shortName, "5h")
         XCTAssertEqual(MenuBarMetric.claudeWeeklyAll.shortName, "Wk")
-        XCTAssertEqual(MenuBarMetric.claudeWeeklySonnet.shortName, "Son")
+        XCTAssertEqual(MenuBarMetric.claudeWeeklyFable.shortName, "Fab")
         XCTAssertEqual(MenuBarMetric.copilotPremium.shortName, "CP")
     }
     
     func testMenuBarMetric_providerNames() {
         XCTAssertEqual(MenuBarMetric.claude5Hour.providerName, "Claude")
         XCTAssertEqual(MenuBarMetric.claudeWeeklyAll.providerName, "Claude")
-        XCTAssertEqual(MenuBarMetric.claudeWeeklySonnet.providerName, "Claude")
+        XCTAssertEqual(MenuBarMetric.claudeWeeklyFable.providerName, "Claude")
         XCTAssertEqual(MenuBarMetric.copilotPremium.providerName, "Copilot")
     }
     
     func testMenuBarMetric_rawValues() {
         XCTAssertEqual(MenuBarMetric.claude5Hour.rawValue, "claude_5hour")
         XCTAssertEqual(MenuBarMetric.claudeWeeklyAll.rawValue, "claude_weekly_all")
-        XCTAssertEqual(MenuBarMetric.claudeWeeklySonnet.rawValue, "claude_weekly_sonnet")
+        XCTAssertEqual(MenuBarMetric.claudeWeeklyFable.rawValue, "claude_weekly_fable")
         XCTAssertEqual(MenuBarMetric.copilotPremium.rawValue, "copilot_premium")
     }
     
     func testMenuBarMetric_codable() throws {
-        let original = MenuBarMetric.claudeWeeklySonnet
+        let original = MenuBarMetric.claudeWeeklyFable
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(MenuBarMetric.self, from: data)
         XCTAssertEqual(decoded, original)

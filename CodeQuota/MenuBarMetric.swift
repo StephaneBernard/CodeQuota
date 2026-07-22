@@ -3,14 +3,14 @@ import Foundation
 enum MenuBarMetric: String, CaseIterable, Codable {
     case claude5Hour = "claude_5hour"
     case claudeWeeklyAll = "claude_weekly_all"
-    case claudeWeeklySonnet = "claude_weekly_sonnet"
+    case claudeWeeklyFable = "claude_weekly_fable"
     case copilotPremium = "copilot_premium"
     
     var displayName: String {
         switch self {
         case .claude5Hour: return "Claude — 5-Hour Session"
         case .claudeWeeklyAll: return "Claude — Weekly All Models"
-        case .claudeWeeklySonnet: return "Claude — Weekly Sonnet"
+        case .claudeWeeklyFable: return "Claude — Weekly Fable"
         case .copilotPremium: return "Copilot — Premium Requests"
         }
     }
@@ -19,14 +19,14 @@ enum MenuBarMetric: String, CaseIterable, Codable {
         switch self {
         case .claude5Hour: return "5h"
         case .claudeWeeklyAll: return "Wk"
-        case .claudeWeeklySonnet: return "Son"
+        case .claudeWeeklyFable: return "Fab"
         case .copilotPremium: return "CP"
         }
     }
     
     var providerName: String {
         switch self {
-        case .claude5Hour, .claudeWeeklyAll, .claudeWeeklySonnet: return "Claude"
+        case .claude5Hour, .claudeWeeklyAll, .claudeWeeklyFable: return "Claude"
         case .copilotPremium: return "Copilot"
         }
     }

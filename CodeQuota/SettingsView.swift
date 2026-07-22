@@ -488,7 +488,7 @@ struct SettingsView: View {
     private var availableMetrics: [MenuBarMetric] {
         var metrics: [MenuBarMetric] = []
         if anthropicAuth.isConnected {
-            metrics.append(contentsOf: [.claude5Hour, .claudeWeeklyAll, .claudeWeeklySonnet])
+            metrics.append(contentsOf: [.claude5Hour, .claudeWeeklyAll, .claudeWeeklyFable])
         }
         if githubAuth.isConnected {
             metrics.append(.copilotPremium)

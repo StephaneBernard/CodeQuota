@@ -132,9 +132,9 @@ struct ContentView: View {
                     }
                     
                     let showWeeklyAll = settings.isVisible(.claudeWeeklyAll)
-                    let showSonnet = settings.isVisible(.claudeWeeklySonnet)
+                    let showFable = settings.isVisible(.claudeWeeklyFable)
                     
-                    if showWeeklyAll && showSonnet {
+                    if showWeeklyAll && showFable {
                         // Both visible — side by side
                         HStack(spacing: 8) {
                             GradientTile(
@@ -146,9 +146,9 @@ struct ContentView: View {
                             )
                             GradientTile(
                                 icon: "sparkles",
-                                title: "Sonnet",
-                                percentage: usage.dailySonnet.percent,
-                                detail: usage.dailySonnet.timeRemainingString,
+                                title: "Fable",
+                                percentage: usage.dailyFable.percent,
+                                detail: usage.dailyFable.timeRemainingString,
                                 compact: true
                             )
                         }
@@ -159,12 +159,12 @@ struct ContentView: View {
                             percentage: usage.dailyAllModels.percent,
                             detail: usage.dailyAllModels.timeRemainingString
                         )
-                    } else if showSonnet {
+                    } else if showFable {
                         GradientTile(
                             icon: "sparkles",
-                            title: "Weekly — Sonnet",
-                            percentage: usage.dailySonnet.percent,
-                            detail: usage.dailySonnet.timeRemainingString
+                            title: "Weekly — Fable",
+                            percentage: usage.dailyFable.percent,
+                            detail: usage.dailyFable.timeRemainingString
                         )
                     }
                 }
@@ -281,7 +281,7 @@ struct ContentView: View {
     // MARK: - Helpers
     
     private var hasVisibleClaudeMetrics: Bool {
-        settings.isVisible(.claude5Hour) || settings.isVisible(.claudeWeeklyAll) || settings.isVisible(.claudeWeeklySonnet)
+        settings.isVisible(.claude5Hour) || settings.isVisible(.claudeWeeklyAll) || settings.isVisible(.claudeWeeklyFable)
     }
     
     // MARK: - Inline Error
